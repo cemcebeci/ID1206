@@ -1,0 +1,4 @@
+Assignment 8 of ID1206 Operating Systems at KTH, December 2019.
+This repository is a series of experiments on managing multiple contexts without the pthreads library.
+Detailed description can be found in communication.pdf.
+ 
