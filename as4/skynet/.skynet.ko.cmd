@@ -1,0 +1,1 @@
+cmd_/home/cemcebeci/Desktop/skynet/skynet.ko := ld -r -m elf_x86_64  -z max-page-size=0x200000 -T ./scripts/module-common.lds  --build-id  -o /home/cemcebeci/Desktop/skynet/skynet.ko /home/cemcebeci/Desktop/skynet/skynet.o /home/cemcebeci/Desktop/skynet/skynet.mod.o ;  true

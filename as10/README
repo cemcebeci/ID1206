@@ -1,0 +1,11 @@
+Assignment 10 of ID1206 Operating Systems at KTH, December 2019.
+This repository is a series of experiments on communciation between processes.
+Detailed description can be found in communication.pdf.
+
+The processes are supposed to communicate in pairs below:
+	ping with pong
+	baba with cave
+	conv with tolower
+	echo with hello
+
+And flow forks off two processes that communicate with each other.
