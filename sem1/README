@@ -1,0 +1,4 @@
+Seminar 1 of ID1206 Operating Systems at KTH, November 2019.
+This project contatins a series of experiments on different ways of booting into an operating system.
+Detailed description can be found in boot.pdf
+The organization of this directory is messy because a reorganization is not trivial.
