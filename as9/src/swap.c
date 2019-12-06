@@ -3,31 +3,31 @@
 #include <pthread.h>
 
 volatile int count = 0;
+volatile int global = 0;
 
-volatile int request[2] = {0,0};
-volatile int turn = 0;
-
-void lock( int id){
-	request[id] = 1;
-	int other = 1 - id; //since the two id's are 1 and 0
-	turn = other;
-	while(request[other] == 1 && turn == other) {}; //spin
+int try(volatile int * mutex){
+	return __sync_val_compare_and_swap(mutex, 0, 1);
 }
 
-void unlock( int id) {
-	request[id] = 0;
+void lock( volatile int * mutex){
+	while(try(mutex) != 0); //spin
 }
 
-typedef struct args{int inc; int id;}args;
+void unlock( volatile int *mutex) {
+	*mutex = 0;
+}
+
+typedef struct args{int inc; int id; volatile int *mutex;}args;
 
 void *increment(void *arg) {
 	int inc = ((args*)arg)->inc;
 	int id = ((args*)arg)->id;
+	volatile int *mutex = ((args*)arg)->mutex;
 
 	for(int i = 0; i < inc; i++){
-		lock(id);
+		lock(mutex);
 		count ++;
-		unlock(id);
+		unlock(mutex);
 	}
 }
 
@@ -48,6 +48,9 @@ int main( int argc,char *argv[]){
 
 	one_args.id = 0;
 	two_args.id = 1;
+
+	one_args.mutex = &global;
+	two_args.mutex = &global;
 
 	pthread_create(&one_p, NULL, increment, &one_args);
 	pthread_create(&two_p, NULL, increment, &two_args);
