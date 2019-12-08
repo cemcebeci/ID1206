@@ -65,7 +65,6 @@ int green_create( green_t *new, void *(*fun)( void *), void *arg) {
 	new->join = NULL;
 	new->retval = NULL;
 	new->zombie = FALSE;
-
 	end->next = new;
 	end = new;
 	end->next = NULL;
@@ -96,4 +95,41 @@ int green_join(green_t *thread, void **res){
 		*res = thread->retval;
 	free(thread->context);
 	return 0;
+}
+
+//--------------------------Conditinal Variables-------------------------
+
+void green_cond_init( green_cond_t *cond){
+	cond->thread = NULL;
+	cond->next = NULL;
+}
+
+void green_cond_wait( green_cond_t *cond){
+	green_t *this = running;
+
+	//Add a new node to the start of the list
+	green_cond_t *new = (green_cond_t *)malloc(sizeof(green_cond_t));
+	new->thread = this;
+	new->next = cond->next;
+	cond->next = new;
+
+	//detach the current thread from the ready queue and switch thread
+	green_t *next = running->next;
+	running = next;
+	swapcontext(this->context, next->context);
+}
+
+void green_cond_signal( green_cond_t *cond){
+	if(cond->next == NULL)
+		return;
+	//move the thread to the ready queue (to the end for now).
+	green_t *thr = cond->next->thread;
+	end->next = thr;
+	end = thr;
+	thr->next = NULL; 
+
+	//detach the node from the conditional list and deallocate
+	green_cond_t *old = cond->next;
+	cond->next =  old->next;
+	free(old);
 }

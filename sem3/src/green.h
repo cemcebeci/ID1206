@@ -10,7 +10,15 @@ typedef struct green_t {
 	int zombie;				//whether or not the current thread is finished
 } green_t;
 
+typedef struct green_cond_t {
+	green_t *thread;
+	struct green_cond_t *next;
+} green_cond_t;
+
 int green_create( green_t *thread, void *(*fun)(void *), void *arg);
 int green_yield();
 int green_join(green_t *thread, void **val);
+void green_cond_init( green_cond_t *cond);
+void green_cond_wait( green_cond_t *cond);
+void green_cond_signal( green_cond_t *cond);
 void report();
