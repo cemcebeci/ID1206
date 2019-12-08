@@ -1,0 +1,5 @@
+Assignment 9 of ID1206 Operating Systems at KTH, December 2019.
+This repository is a series of experiments on managing multiple threads using locks.
+Detailed description can be found in locks.pdf.
+Implementation is not completed yet.
+ 

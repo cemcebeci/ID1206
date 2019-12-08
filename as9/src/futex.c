@@ -1,25 +1,37 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <pthread.h>
+#include <unistd.h>
+#include <linux/futex.h>
+#include <sys/syscall.h>
 
 volatile int count = 0;
 volatile int global = 0;
 
-int try(volatile int * mutex){
+int futex_wait( volatile int * futexp){
+	return syscall(SYS_futex, futexp, FUTEX_WAIT, 1, NULL, NULL, 0);
+}
+
+void futex_wake( volatile int *futexp){
+	syscall( SYS_futex, futexp, FUTEX_WAKE, 1, NULL, NULL, 0);
+}
+
+int try( volatile int * mutex){
 	return __sync_val_compare_and_swap(mutex, 0, 1);
 }
 
-int lock( volatile int * mutex){
-	int spin = 0;
-	while(try(mutex) != 0){
-		spin++;
-		sched_yield();
+int lock( volatile int * lock){
+	int susp = 0;
+	while( try(lock) != 0){
+		susp++;
+		futex_wait(lock);
 	} //spin
-	return spin;
+	return susp;
 }
 
-void unlock( volatile int *mutex) {
-	*mutex = 0;
+void unlock( volatile int *lock) {
+	*lock = 0;
+	futex_wake(lock);
 }
 
 typedef struct args{int inc; int id; volatile int *mutex;}args;
