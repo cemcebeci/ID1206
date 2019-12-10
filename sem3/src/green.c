@@ -2,12 +2,17 @@
 #include <stdio.h>
 #include <ucontext.h>
 #include <assert.h>
+#include <signal.h>
+#include <sys/time.h>
 #include "green.h"
+
 
 #define FALSE 0
 #define TRUE 1
 
 #define STACK_SIZE 4096
+
+#define PERIOD 100 //period for the timer interrupt
 
 static ucontext_t main_cntx = {0};
 static green_t main_green = {&main_cntx, NULL, NULL, NULL, NULL, NULL, FALSE};
@@ -15,12 +20,41 @@ static green_t main_green = {&main_cntx, NULL, NULL, NULL, NULL, NULL, FALSE};
 static green_t *running = &main_green;
 static green_t *end = &main_green;
 
+static sigset_t block;
+
+void timer_handler(int);
+
 static void init() __attribute__((constructor));
+
+int critic = FALSE; // for the timer interrupt
 
 void init() {
 	getcontext(&main_cntx);
+
+	sigemptyset(&block);
+	sigaddset(&block, SIGVTALRM);
+	struct sigaction act = {0};
+	struct timeval interval;
+	struct itimerval period;
+
+	act.sa_handler = timer_handler;
+	assert(sigaction(SIGVTALRM, &act, NULL) == 0);
+
+	interval.tv_sec = 0;
+	interval.tv_usec = PERIOD;
+	period.it_interval = interval;
+	period.it_value = interval;
+	setitimer(ITIMER_VIRTUAL, &period, NULL);
 }
 
+
+int timercount = 0;
+void timer_handler( int sig) {
+	if(critic)
+		return;
+	timercount++;
+	green_yield();
+}
 void report(){
 	for(green_t *cur = running; cur != NULL; cur = cur->next)
 		printf("thread at: %p\n", cur);
@@ -71,24 +105,29 @@ int green_create( green_t *new, void *(*fun)( void *), void *arg) {
 }
 
 int green_yield() {
+	
+	sigprocmask( SIG_BLOCK, &block, NULL);
 	green_t *susp = running;
 	end->next = susp;
 	end = susp;
 	green_t *next = running->next;
 	susp->next = NULL;
 	running = next;
-	swapcontext(susp->context, next->context);
+	sigprocmask( SIG_UNBLOCK, &block, NULL);
+	swapcontext(susp->context, running->context);
 	return 0;
 }
 
 int green_join(green_t *thread, void **res){
 
 	if( !thread->zombie){
+		sigprocmask( SIG_BLOCK, &block, NULL);
 		green_t *susp = running;
 		thread->join = susp;
 		green_t *next = running->next;
 		running = next;
-		swapcontext(susp->context, next->context);
+		sigprocmask( SIG_UNBLOCK, &block, NULL);
+		swapcontext(susp->context, running->context);
 	}
 	//This is where the waiting thread's execution will continue
 	if(res != NULL)
@@ -105,6 +144,7 @@ void green_cond_init( green_cond_t *cond){
 }
 
 void green_cond_wait( green_cond_t *cond){
+	sigprocmask( SIG_BLOCK, &block, NULL);
 	green_t *this = running;
 
 	//Add a new node to the start of the list
@@ -116,12 +156,14 @@ void green_cond_wait( green_cond_t *cond){
 	//detach the current thread from the ready queue and switch thread
 	green_t *next = running->next;
 	running = next;
-	swapcontext(this->context, next->context);
+	sigprocmask( SIG_UNBLOCK, &block, NULL);
+	swapcontext(this->context, running->context);
 }
 
 void green_cond_signal( green_cond_t *cond){
 	if(cond->next == NULL)
 		return;
+	sigprocmask( SIG_BLOCK, &block, NULL);
 	//move the thread to the ready queue (to the end for now).
 	green_t *thr = cond->next->thread;
 	end->next = thr;
@@ -131,5 +173,6 @@ void green_cond_signal( green_cond_t *cond){
 	//detach the node from the conditional list and deallocate
 	green_cond_t *old = cond->next;
 	cond->next =  old->next;
+	sigprocmask( SIG_BLOCK, &block, NULL);
 	free(old);
 }

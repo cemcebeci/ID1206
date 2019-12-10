@@ -6,7 +6,7 @@ green_cond_t cond;
 
 void *test( void *arg) {
 	int id = *(int *)arg;
-	int loop = 4;
+	int loop = 10000;
 	while( loop > 0) {
 		if( flag == id) {
 			printf("thread%d: %d\n",id ,loop);
@@ -29,6 +29,6 @@ int main(){
 
 	green_join(&g0, NULL);
 	green_join(&g1, NULL);
-	printf("done\n");
+	printf("done, timercount: %d\n", timercount);
 	return 0;
 }
