@@ -176,3 +176,55 @@ void green_cond_signal( green_cond_t *cond){
 	sigprocmask( SIG_BLOCK, &block, NULL);
 	free(old);
 }
+
+//-----------------------------Mutex----------------------------------
+
+int green_mutex_init(green_mutex_t *mutex) {
+	mutex->taken = FALSE;
+	mutex->head = NULL;
+	return 0;
+}
+
+int green_mutex_lock(green_mutex_t *mutex) {
+	sigprocmask( SIG_BLOCK, &block, NULL);
+
+	if(mutex->taken) {
+		green_t *this = running;
+
+		//add the current thread to the waiting list.
+		green_mutex_node *new = (green_mutex_node *)malloc(sizeof(green_mutex_node));
+		new->next = mutex->head;
+		mutex->head = new;
+		new->thread = this;
+
+		green_t *next = running->next;
+		running = next;
+		swapcontext(this->context, running->context);
+	} else {
+		mutex->taken = TRUE;
+
+	}
+	sigprocmask( SIG_UNBLOCK, &block, NULL);
+	return 0;
+}
+
+int green_mutex_unlock( green_mutex_t *mutex) {
+	sigprocmask( SIG_BLOCK, &block, NULL);
+	if(mutex->head != NULL) {
+		green_t *next = mutex->head->thread;
+
+		//remove the head from the waiting list
+		green_mutex_node *temp = mutex->head->next;
+		free(mutex->head);
+		mutex->head = temp;
+
+		//add the head to the ready queue
+		end->next = next;
+		end = next;
+		next->next = NULL;
+	} else{
+		mutex->taken = FALSE;
+	}
+	sigprocmask( SIG_UNBLOCK, &block, NULL);
+	return 0;
+}
