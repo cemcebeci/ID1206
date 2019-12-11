@@ -26,8 +26,6 @@ void timer_handler(int);
 
 static void init() __attribute__((constructor));
 
-int critic = FALSE; // for the timer interrupt
-
 void init() {
 	getcontext(&main_cntx);
 
@@ -50,11 +48,10 @@ void init() {
 
 int timercount = 0;
 void timer_handler( int sig) {
-	if(critic)
-		return;
 	timercount++;
 	green_yield();
 }
+
 void report(){
 	for(green_t *cur = running; cur != NULL; cur = cur->next)
 		printf("thread at: %p\n", cur);
@@ -64,7 +61,7 @@ void green_thread() {// IMPORTANT NOTE! The type of result is assumed in here,
 					 // check that!
 	green_t *this = running;
 
-	void **result = (*this->fun)(this->arg);
+	void *result = (*this->fun)(this->arg); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 	//place the waiting thread in the ready queue
 	if( this->join != NULL) {
@@ -113,8 +110,8 @@ int green_yield() {
 	green_t *next = running->next;
 	susp->next = NULL;
 	running = next;
-	sigprocmask( SIG_UNBLOCK, &block, NULL);
 	swapcontext(susp->context, running->context);
+	sigprocmask( SIG_UNBLOCK, &block, NULL);
 	return 0;
 }
 
@@ -126,8 +123,8 @@ int green_join(green_t *thread, void **res){
 		thread->join = susp;
 		green_t *next = running->next;
 		running = next;
-		sigprocmask( SIG_UNBLOCK, &block, NULL);
 		swapcontext(susp->context, running->context);
+		sigprocmask( SIG_UNBLOCK, &block, NULL);
 	}
 	//This is where the waiting thread's execution will continue
 	if(res != NULL)
@@ -156,8 +153,8 @@ void green_cond_wait( green_cond_t *cond){
 	//detach the current thread from the ready queue and switch thread
 	green_t *next = running->next;
 	running = next;
-	sigprocmask( SIG_UNBLOCK, &block, NULL);
 	swapcontext(this->context, running->context);
+	sigprocmask( SIG_UNBLOCK, &block, NULL);
 }
 
 void green_cond_signal( green_cond_t *cond){
@@ -202,7 +199,6 @@ int green_mutex_lock(green_mutex_t *mutex) {
 		swapcontext(this->context, running->context);
 	} else {
 		mutex->taken = TRUE;
-
 	}
 	sigprocmask( SIG_UNBLOCK, &block, NULL);
 	return 0;
