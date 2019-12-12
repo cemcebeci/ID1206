@@ -13,7 +13,7 @@ void *increment( void *arg) {
 	argstr *argument = (argstr *) arg;
 	int id = argument->id;
 	green_mutex_t *mutex = argument->mutex;
-	for(int i = 0; i < 1000; i++) {
+	for(int i = 0; i < 1000000; i++) {
 		green_mutex_lock(mutex);
 		count++;
 		green_mutex_unlock(mutex);

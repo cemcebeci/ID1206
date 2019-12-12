@@ -55,14 +55,14 @@ void timer_handler( int sig) {
 void report(){
 	for(green_t *cur = running; cur != NULL; cur = cur->next)
 		printf("thread at: %p\n", cur);
+	printf("report done\n");
 }
 
-void green_thread() {// IMPORTANT NOTE! The type of result is assumed in here,
-					 // check that!
+void green_thread() {
 	green_t *this = running;
 
-	void *result = (*this->fun)(this->arg); //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+	void *result = (*this->fun)(this->arg);
+	sigprocmask( SIG_BLOCK, &block, NULL);
 	//place the waiting thread in the ready queue
 	if( this->join != NULL) {
 		end->next = this->join;
@@ -77,6 +77,7 @@ void green_thread() {// IMPORTANT NOTE! The type of result is assumed in here,
 	running = next;
 
 	setcontext(next->context); //This also calls the green_thread function.
+	sigprocmask( SIG_UNBLOCK, &block, NULL);	
 }
 
 int green_create( green_t *new, void *(*fun)( void *), void *arg) {
@@ -92,7 +93,7 @@ int green_create( green_t *new, void *(*fun)( void *), void *arg) {
 	new->context = cntx;
 	new->fun = fun;
 	new->arg = arg;
-	new->next = NULL; // Redundant, consider removing this.
+	new->next = NULL;
 	new->join = NULL;
 	new->retval = NULL;
 	new->zombie = FALSE;
@@ -102,8 +103,10 @@ int green_create( green_t *new, void *(*fun)( void *), void *arg) {
 }
 
 int green_yield() {
-	
 	sigprocmask( SIG_BLOCK, &block, NULL);
+	if(running->next == NULL)
+		return 0;
+
 	green_t *susp = running;
 	end->next = susp;
 	end = susp;
@@ -116,20 +119,19 @@ int green_yield() {
 }
 
 int green_join(green_t *thread, void **res){
-
+	sigprocmask( SIG_BLOCK, &block, NULL);
 	if( !thread->zombie){
-		sigprocmask( SIG_BLOCK, &block, NULL);
 		green_t *susp = running;
 		thread->join = susp;
 		green_t *next = running->next;
 		running = next;
 		swapcontext(susp->context, running->context);
-		sigprocmask( SIG_UNBLOCK, &block, NULL);
 	}
 	//This is where the waiting thread's execution will continue
 	if(res != NULL)
 		*res = thread->retval;
 	free(thread->context);
+	sigprocmask( SIG_UNBLOCK, &block, NULL);
 	return 0;
 }
 
@@ -140,7 +142,7 @@ void green_cond_init( green_cond_t *cond){
 	cond->next = NULL;
 }
 
-void green_cond_wait( green_cond_t *cond){
+int green_cond_wait( green_cond_t *cond, green_mutex_t *mutex){
 	sigprocmask( SIG_BLOCK, &block, NULL);
 	green_t *this = running;
 
@@ -150,17 +152,30 @@ void green_cond_wait( green_cond_t *cond){
 	new->next = cond->next;
 	cond->next = new;
 
+	if( mutex != NULL){
+		green_mutex_unlock(mutex);
+	}
+
 	//detach the current thread from the ready queue and switch thread
 	green_t *next = running->next;
-	running = next;
-	swapcontext(this->context, running->context);
+
+	if(next != NULL){
+		running = next;
+		swapcontext(this->context, running->context);
+	}
+	
+	if( mutex != NULL){
+		green_mutex_lock(mutex);
+	}
 	sigprocmask( SIG_UNBLOCK, &block, NULL);
+	return 0;
 }
 
 void green_cond_signal( green_cond_t *cond){
-	if(cond->next == NULL)
-		return;
 	sigprocmask( SIG_BLOCK, &block, NULL);
+	if(cond->next == NULL){
+		return;
+	}
 	//move the thread to the ready queue (to the end for now).
 	green_t *thr = cond->next->thread;
 	end->next = thr;
@@ -170,7 +185,7 @@ void green_cond_signal( green_cond_t *cond){
 	//detach the node from the conditional list and deallocate
 	green_cond_t *old = cond->next;
 	cond->next =  old->next;
-	sigprocmask( SIG_BLOCK, &block, NULL);
+	sigprocmask( SIG_UNBLOCK, &block, NULL);
 	free(old);
 }
 
@@ -195,6 +210,7 @@ int green_mutex_lock(green_mutex_t *mutex) {
 		new->thread = this;
 
 		green_t *next = running->next;
+
 		running = next;
 		swapcontext(this->context, running->context);
 	} else {
@@ -208,7 +224,6 @@ int green_mutex_unlock( green_mutex_t *mutex) {
 	sigprocmask( SIG_BLOCK, &block, NULL);
 	if(mutex->head != NULL) {
 		green_t *next = mutex->head->thread;
-
 		//remove the head from the waiting list
 		green_mutex_node *temp = mutex->head->next;
 		free(mutex->head);
@@ -218,6 +233,7 @@ int green_mutex_unlock( green_mutex_t *mutex) {
 		end->next = next;
 		end = next;
 		next->next = NULL;
+
 	} else{
 		mutex->taken = FALSE;
 	}
