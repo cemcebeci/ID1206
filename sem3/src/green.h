@@ -5,7 +5,7 @@ typedef struct green_t {
 	void *(*fun)(void *); 	//start routine
 	void *arg; 				//start routine arguments
 	struct green_t *next;	//for the linked list
-	struct green_t *join;	//the thread waiitng for the current thread to finish
+	struct green_t *join;	//the thread waiting for the current thread to finish
 	void *retval;			//return value of the current thread
 	int zombie;				//whether or not the current thread is finished
 } green_t;

@@ -1,0 +1,3 @@
+This project was implemented for the third seminar of ID1206 Operating Systems at KTH on December 2019.
+The project contains an implementation of a concurrent threads library.
+Detailed description can be found in the report pdf.
