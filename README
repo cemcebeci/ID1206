@@ -1,0 +1,21 @@
+This repository is a collection of all the assignments and seminars from the course ID1206 Operating Systems at KTH, Fall 2019.
+Almost every project is fully implemented, excluding as9, as11 and as12.
+
+as1 -> process memory layout
+as2 -> creating new processes
+as3 -> signals
+as4 -> kernel modules
+as5 -> simple malloc implementation
+as6 -> TLB size
+as7 -> page frame reclaiming
+as8 -> context switching
+as9 -> locks(threads)
+as10-> interprocess communication
+as11-> disk access experiments
+as12-> file system exploration
+
+sem1-> booting from scratch
+sem2-> more efficient malloc and free
+sem3-> green threads library
+
+Any credits belong to Johan Montelius, the instructor.
